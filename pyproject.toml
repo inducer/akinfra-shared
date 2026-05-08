@@ -1,0 +1,19 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "akinfra-shared"
+dynamic = ["version"]
+description = ''
+readme = "README.md"
+requires-python = ">=3.8"
+license = "MIT"
+authors = [
+  { name = "Andreas Kloeckner", email = "inform@tiker.net" },
+]
+
+dependencies = []
+
+[tool.hatch.version]
+path = "src/akinfra_shared/__about__.py"
