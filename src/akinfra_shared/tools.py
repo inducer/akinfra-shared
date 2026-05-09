@@ -3,6 +3,7 @@ import subprocess
 from collections.abc import Mapping, Sequence
 from typing import TypeAlias, cast
 
+from pyinfra.api.host import Host
 
 HostData: TypeAlias = Mapping[str, object]
 HostWithData: TypeAlias = tuple[str, HostData] |  str
@@ -43,6 +44,10 @@ def sudo_from_bitwarden(inventory: Inventory) -> Inventory:
 
     return {group: [add_sudo_password(hwd) for hwd in hwds]
         for group, hwds in inventory.items()}
+
+
+def needs_sudo(host: Host) -> bool:
+    return bool(hasattr(host.data, "_sudo_password"))
 
 
 def merge_inventories(inventories: Sequence[Inventory]) -> Inventory:

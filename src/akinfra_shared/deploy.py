@@ -19,11 +19,11 @@ def mitigate_dirtyfrag():
                 path="/etc/modprobe.d/dirtyfrag.conf",
                 line=f"install {mod_name} /bin/false",
                 ensure_newline=True,
-                _sudo=True,
+                _sudo=needs_sudo(host),
             )
             server.modprobe(
                 name=f"Remove {mod_name} from kernel",
                 module=mod_name,
                 present=False,
-                _sudo=True,
+                _sudo=needs_sudo(host),
             )
