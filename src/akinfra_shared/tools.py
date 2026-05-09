@@ -5,8 +5,9 @@ from typing import TypeAlias, cast
 
 from pyinfra.api.host import Host
 
+
 HostData: TypeAlias = Mapping[str, object]
-HostWithData: TypeAlias = tuple[str, HostData] |  str
+HostWithData: TypeAlias = tuple[str, HostData] | str
 Inventory: TypeAlias = Mapping[str, Sequence[HostWithData]]
 
 
