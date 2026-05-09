@@ -5,7 +5,7 @@ from typing import TypeAlias, cast
 
 
 HostData: TypeAlias = Mapping[str, object]
-HostWithData: TypeAlias = tuple[str, HostData]
+HostWithData: TypeAlias = tuple[str, HostData] |  str
 Inventory: TypeAlias = Mapping[str, Sequence[HostWithData]]
 
 
@@ -26,6 +26,9 @@ def get_bitwarden_password(search_term_or_id: str) -> str:
 
 def sudo_from_bitwarden(inventory: Inventory) -> Inventory:
     def add_sudo_password(hwd: HostWithData) -> HostWithData:
+        if isinstance(hwd, str):
+            return hwd
+
         host, data = hwd
 
         if "bw_sudo_id" in data:
