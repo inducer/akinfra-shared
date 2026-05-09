@@ -6,6 +6,8 @@ from pyinfra.operations import files, server
 
 @deploy("Mitigate Dirtyfrag")
 def mitigate_dirtyfrag():
+    # https://www.openwall.com/lists/oss-security/2026/05/07/8
+    # Also mitigates copy-fail 2: https://github.com/0xdeadbeefnetwork/Copy_Fail2-Electric_Boogaloo/issues/8#issuecomment-4408466147
     if host.get_fact(Kernel) == "Linux":
         for mod_name in [
                     "esp4",
