@@ -3,6 +3,28 @@ from pyinfra.api import deploy
 from pyinfra.facts.server import Kernel
 from pyinfra.operations import files, server
 
+from akinfra_shared.tools import needs_sudo
+
+
+@deploy("Mitigate Copy Fail")
+def mitigate_copyfail():
+    # https://copy.fail/
+    if host.get_fact(Kernel) == "Linux":
+        mod_name = "algif_aead"
+        files.line(
+            name=f"Block {mod_name} in modprobe.d",
+            path="/etc/modprobe.d/copyfail.conf",
+            line=f"install {mod_name} /bin/false",
+            ensure_newline=True,
+            _sudo=needs_sudo(host),
+        )
+        server.modprobe(
+            name=f"Remove {mod_name} from kernel",
+            module=mod_name,
+            present=False,
+            _sudo=needs_sudo(host),
+        )
+
 
 @deploy("Mitigate Dirtyfrag")
 def mitigate_dirtyfrag():
