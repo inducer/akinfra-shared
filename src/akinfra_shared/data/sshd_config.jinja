@@ -10,7 +10,11 @@
 
 Include /etc/ssh/sshd_config.d/*.conf
 
+{% if port %}
+Port {{ port }}
+{% else %}
 #Port 22
+{% endif %}
 #AddressFamily any
 #ListenAddress 0.0.0.0
 #ListenAddress ::

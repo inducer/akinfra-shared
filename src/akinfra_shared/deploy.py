@@ -57,11 +57,8 @@ def install_sshd_config():
     sshd_config = render_template(
         "sshd_config.jinja",
         template_vars={
-            "max_startups": (
-                # jumphost for pyinfra
-                "50:30:200"
-                if host.name == "lager.cs.illinois.edu"
-                else "10:3:10"),
+            "max_startups": host.data.get("sshd_max_startups", None),
+            "port": host.data.get("sshd_port", None)
         },
     )
 
