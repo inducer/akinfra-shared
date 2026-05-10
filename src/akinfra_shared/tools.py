@@ -1,8 +1,10 @@
 import os
 import subprocess
 from collections.abc import Mapping, Sequence
+from importlib import resources
 from typing import TypeAlias, cast
 
+from minijinja import Environment
 from pyinfra.api.host import Host
 
 
@@ -97,3 +99,23 @@ def merge_inventories(inventories: Sequence[Inventory]) -> Inventory:
                 existing_host_names.add(host_name)
 
     return merged
+
+
+def render_template(
+    template_name: str,
+    module_name: str = "akinfra_shared",
+    template_vars: dict[str, object] | None = None,
+) -> str:
+    if template_vars is None:
+        template_vars = {}
+    return Environment(
+        undefined_behavior="strict",
+        templates={
+            template_name: (resources
+                .files(module_name)
+                .joinpath(f"data/{template_name}")
+                .read_text())
+    }).render_template(
+        template_name,
+        **template_vars,
+    )

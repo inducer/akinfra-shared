@@ -1,9 +1,11 @@
+from io import BytesIO
+
 from pyinfra import host
 from pyinfra.api import deploy
 from pyinfra.facts.server import Kernel
 from pyinfra.operations import files, server
 
-from akinfra_shared.tools import needs_sudo
+from akinfra_shared.tools import needs_sudo, render_template
 
 
 @deploy("Mitigate Copy Fail")
@@ -49,3 +51,30 @@ def mitigate_dirtyfrag():
                 present=False,
                 _sudo=needs_sudo(host),
             )
+
+
+def install_sshd_config():
+    sshd_config = render_template(
+        "sshd_config.jinja",
+        template_vars={
+            "max_startups": (
+                # jumphost for pyinfra
+                "50:30:200"
+                if host.name == "lager.cs.illinois.edu"
+                else "10:3:10"),
+        },
+    )
+
+    sshd_config_op = files.put(
+        name="Install SSHD config",
+        dest="/etc/ssh/sshd_config",
+        src=BytesIO(sshd_config.encode()),
+        _sudo=needs_sudo(host),
+    )
+    server.service(
+        name="Reload SSH",
+        service="ssh",
+        reloaded=True,
+        _if=sshd_config_op.did_change,
+        _sudo=needs_sudo(host),
+    )

@@ -12,7 +12,10 @@ authors = [
   { name = "Andreas Kloeckner", email = "inform@tiker.net" },
 ]
 
-dependencies = []
+dependencies = [
+    "minijinja",
+    "pyinfra",
+]
 
 [tool.hatch.version]
 path = "src/akinfra_shared/__about__.py"
