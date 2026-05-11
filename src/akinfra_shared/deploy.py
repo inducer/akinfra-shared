@@ -75,3 +75,9 @@ def install_sshd_config():
         _if=sshd_config_op.did_change,
         _sudo=needs_sudo(host),
     )
+
+
+def all():
+    mitigate_copyfail()
+    mitigate_dirtyfrag()
+    install_sshd_config()
