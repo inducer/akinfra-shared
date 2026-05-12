@@ -2,10 +2,12 @@ import os
 import subprocess
 from collections.abc import Mapping, Sequence
 from importlib import resources
-from typing import TypeAlias, cast
+from io import BytesIO
+from typing import Callable, TypeAlias, cast
 
 from minijinja import Environment
 from pyinfra.api.host import Host
+from pyinfra.operations import apt, files, git, pipx, server, systemd
 
 
 HostData: TypeAlias = Mapping[str, object]
@@ -110,4 +112,41 @@ def render_template(
     }).render_template(
         template_name,
         **template_vars,
+    )
+
+
+def ensure_uv(*, _sudo: bool = False, _su_user: str | None = None):
+    apt.packages(
+        packages=["pipx"],
+        _sudo=_sudo,
+    )
+    pipx.packages(packages=["uv"], _sudo=_sudo, _su_user=_su_user)
+
+
+def install_service(
+            name: str,
+            content: str,
+            *, _sudo: bool = False,
+            restart_if: Callable[[], bool] | None = None
+        ):
+    files.put(
+        name=f"Install {name} systemd service file",
+        dest=f"/etc/systemd/system/{name}.service",
+        src=BytesIO(content.encode()),
+        _sudo=_sudo,
+    )
+    systemd.service(
+        name=f"Enable {name} systemd service",
+        service=name,
+        running=True,
+        enabled=True,
+        daemon_reload=True,
+        _sudo=_sudo,
+    )
+    systemd.service(
+        name=f"Restart {name} systemd service",
+        service=name,
+        restarted=True,
+        _if=restart_if,
+        _sudo=_sudo,
     )
