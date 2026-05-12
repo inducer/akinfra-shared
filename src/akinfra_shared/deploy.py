@@ -3,7 +3,7 @@ from io import BytesIO
 from pyinfra import host
 from pyinfra.api import deploy
 from pyinfra.facts.server import Kernel
-from pyinfra.operations import files, server
+from pyinfra.operations import files, server, apt
 
 from akinfra_shared.tools import needs_sudo, render_template
 
@@ -81,3 +81,9 @@ def all():
     mitigate_copyfail()
     mitigate_dirtyfrag()
     install_sshd_config()
+
+    apt.packages(
+        packages=["acl"],
+        present=True,
+        _sudo=needs_sudo(host),
+    )
