@@ -1,5 +1,7 @@
+import re
 import subprocess
 from collections.abc import Callable, Mapping, Sequence
+from dataclasses import dataclass
 from importlib import resources
 from io import BytesIO
 from typing import TypeAlias, cast
@@ -51,6 +53,48 @@ def sudo_from_bitwarden(inventory: Inventory) -> Inventory:
 
 def needs_sudo(host: Host) -> bool:
     return bool(hasattr(host.data, "_sudo_password"))
+
+
+@dataclass(frozen=True, order=True)
+class DebianVersion:
+    epoch: int
+    upstream: tuple[int | str, ...]
+    revision: tuple[int | str, ...]
+
+
+def parse_debian_version(v_string: str) -> DebianVersion:
+    """
+    Parses a Debian version string into a DebianVersion dataclass.
+    Example: '2:1.14.2-1ubuntu1' ->
+        DebianVersion(epoch=2, upstream=(1, 14, 2), revision=(1, 'ubuntu', 1))
+    """
+    # 1. Extract Epoch
+    epoch = 0
+    remainder = v_string
+    if ":" in v_string:
+        epoch_part, remainder = v_string.split(":", 1)
+        try:
+            epoch = int(epoch_part)
+        except ValueError:
+            pass  # Fallback to 0 if epoch is non-numeric
+
+    # 2. Split Upstream and Revision
+    upstream_str = remainder
+    revision_str = ""
+    if "-" in remainder:
+        upstream_str, revision_str = remainder.split("-", 1)
+
+    # 3. Tokenize helper
+    def tokenize(s: str) -> tuple[int | str, ...]:
+        # Splits "1.14rc2" into (1, 14, "rc", 2)
+        tokens = re.findall(r"(\d+|[a-zA-Z]+)", s)
+        return tuple(int(t) if t.isdigit() else t for t in tokens)
+
+    return DebianVersion(
+        epoch=epoch,
+        upstream=tokenize(upstream_str),
+        revision=tokenize(revision_str)
+    )
 
 
 def merge_inventories(inventories: Sequence[Inventory]) -> Inventory:
