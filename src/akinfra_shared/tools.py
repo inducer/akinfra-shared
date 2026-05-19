@@ -7,8 +7,12 @@ from io import BytesIO
 from typing import TypeAlias, cast
 
 from minijinja import Environment
+from pyinfra import host
+from pyinfra.api import deploy
 from pyinfra.api.host import Host
-from pyinfra.operations import apt, files, pipx, systemd
+from pyinfra.facts.deb import DebPackage
+from pyinfra.facts.files import FindLinks
+from pyinfra.operations import apt, files, pipx, server, systemd
 
 
 HostData: TypeAlias = Mapping[str, object]
@@ -199,4 +203,65 @@ def install_service(
         restarted=True,
         _if=restart_if,
         _sudo=_sudo,
+    )
+
+
+@deploy("Deploy Nginx")
+def deploy_nginx(package_name: str, use_sudo: bool = False):
+    try:
+        config = (resources
+            .files(package=package_name)
+            .joinpath(f"data/nginx/{host.name}.conf")
+            .read_text())
+    except FileNotFoundError:
+        return
+
+    if 0:
+        # https://security-tracker.debian.org/tracker/CVE-2026-42945
+        needed_ver = "1.30.1-2"
+        installed = parse_debian_version(
+            host.get_fact(DebPackage, "nginx")["version"])
+        needed = parse_debian_version(needed_ver)
+        if installed < needed:
+            apt.packages(
+                packages=[f"nginx={needed_ver}"],
+                update=True,
+                _sudo=use_sudo,
+            )
+
+    files.file(
+        name="Remove wreckage from past bugs",
+        path="/etc/sites-available/mysites",
+        present=False,
+        _sudo=use_sudo,
+    )
+    nginx_config_op = files.put(
+        name="Install Nginx config",
+        dest="/etc/nginx/sites-available/mysites",
+        src=BytesIO(config.encode()),
+        _sudo=use_sudo,
+    )
+    for link in host.get_fact(FindLinks, "/etc/nginx/sites-enabled"):
+        if not link.endswith("mysites"):
+            files.link(
+                name=f"Remove {link}",
+                path=link,
+                target="/etc/nginx/sites-available/mysites",
+                present="mysites" in link,
+                _sudo=use_sudo,
+            )
+    link_op = files.link(
+        name="Enable Nginx config",
+        path="/etc/nginx/sites-enabled/mysites",
+        target="/etc/nginx/sites-available/mysites",
+        _sudo=use_sudo,
+    )
+    # TODO: Listen snippets
+    server.service(
+        name="Reload Nginx",
+        service="nginx",
+        reloaded=True,
+        _if=lambda: (nginx_config_op.did_change()
+            or link_op.did_change()),
+        _sudo=use_sudo,
     )
