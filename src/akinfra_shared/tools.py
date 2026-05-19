@@ -14,6 +14,13 @@ HostWithData: TypeAlias = tuple[str, HostData] | str
 Inventory: TypeAlias = Mapping[str, Sequence[HostWithData]]
 
 
+def get_bitwarden_username(search_term_or_id: str) -> str:
+    return subprocess.check_output(
+        ["rbw", "get", "--field", "username", search_term_or_id],
+        text=True
+    ).strip()
+
+
 def get_bitwarden_password(search_term_or_id: str) -> str:
     return subprocess.check_output(
         ["rbw", "get", search_term_or_id],
