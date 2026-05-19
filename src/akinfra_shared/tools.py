@@ -1,13 +1,12 @@
-import os
 import subprocess
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from importlib import resources
 from io import BytesIO
-from typing import Callable, TypeAlias, cast
+from typing import TypeAlias, cast
 
 from minijinja import Environment
 from pyinfra.api.host import Host
-from pyinfra.operations import apt, files, git, pipx, server, systemd
+from pyinfra.operations import apt, files, pipx, systemd
 
 
 HostData: TypeAlias = Mapping[str, object]
