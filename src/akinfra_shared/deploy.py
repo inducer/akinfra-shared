@@ -3,7 +3,7 @@ from io import BytesIO
 from pyinfra import host
 from pyinfra.api import deploy
 from pyinfra.facts.server import Kernel
-from pyinfra.operations import files, server, apt
+from pyinfra.operations import apt, files, server
 
 from akinfra_shared.tools import needs_sudo, render_template
 
