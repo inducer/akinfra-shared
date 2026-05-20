@@ -83,7 +83,7 @@ def all():
     install_sshd_config()
 
     apt.packages(
-        packages=["acl"],
+        packages=["acl", "fail2ban", "etckeeper"],
         present=True,
         _sudo=needs_sudo(host),
     )
