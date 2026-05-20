@@ -4,6 +4,7 @@ from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from importlib import resources
 from io import BytesIO
+from pathlib import Path
 from typing import TypeAlias, cast
 
 from minijinja import Environment
@@ -208,23 +209,34 @@ def install_service(
 
 @deploy("Deploy Nginx")
 def deploy_nginx(package_name: str, use_sudo: bool = False):
-    try:
-        config = (resources
-            .files(package=package_name)
-            .joinpath(f"data/nginx/{host.name}.conf")
-            .read_text())
-    except FileNotFoundError:
+    sites_files: list[Path] = list(resources
+            .files(package_name)
+            .joinpath(f"data/nginx/{host.name}")
+            .glob("*.sites")
+    )
+    if not sites_files:
         return
 
-    if 0:
+    nginx_use_full = host.data.get("nginx_use_full", False)
+    nginx_package_name = "nginx-full" if nginx_use_full else "nginx"
+    nginx_status = host.get_fact(DebPackage, nginx_package_name)
+    if nginx_status is None:
+        apt.packages(
+            packages=[nginx_package_name],
+            _sudo=use_sudo,
+        )
+    else:
         # https://security-tracker.debian.org/tracker/CVE-2026-42945
         needed_ver = "1.30.1-2"
-        installed = parse_debian_version(
-            host.get_fact(DebPackage, "nginx")["version"])
+        installed = parse_debian_version(nginx_status["version"])
         needed = parse_debian_version(needed_ver)
         if installed < needed:
             apt.packages(
-                packages=[f"nginx={needed_ver}"],
+                packages=[
+                    f"{nginx_package_name}={needed_ver}",
+                    f"nginx-common={needed_ver}",
+                    *([f"nginx={needed_ver}"] if nginx_use_full else [])
+                ],
                 update=True,
                 _sudo=use_sudo,
             )
@@ -235,14 +247,28 @@ def deploy_nginx(package_name: str, use_sudo: bool = False):
         present=False,
         _sudo=use_sudo,
     )
-    nginx_config_op = files.put(
-        name="Install Nginx config",
-        dest="/etc/nginx/sites-available/mysites",
-        src=BytesIO(config.encode()),
-        _sudo=use_sudo,
-    )
+
+    def to_sites_av(p: Path):
+        return f"/etc/nginx/sites-available/{p.stem}"
+
+    def to_sites_en(p: Path):
+        return f"/etc/nginx/sites-enabled/{p.stem}"
+
+    sites_en_ops = [files.put(
+        name=f"Install Nginx site {sfile.stem}",
+        dest=to_sites_av(sfile),
+        src=BytesIO(sfile.read_text().encode()),
+        _sudo=use_sudo)
+        for sfile in sites_files
+    ]
+    sites_av_names = [to_sites_av(sfile) for sfile in sites_files]
     for link in host.get_fact(FindLinks, "/etc/nginx/sites-enabled"):
-        if not link.endswith("mysites"):
+        if not (
+            # ours
+            link in sites_av_names
+            # managed via Jitsi Meet package
+            or "meet." in link
+        ):
             files.link(
                 name=f"Remove {link}",
                 path=link,
@@ -250,18 +276,17 @@ def deploy_nginx(package_name: str, use_sudo: bool = False):
                 present="mysites" in link,
                 _sudo=use_sudo,
             )
-    link_op = files.link(
-        name="Enable Nginx config",
-        path="/etc/nginx/sites-enabled/mysites",
-        target="/etc/nginx/sites-available/mysites",
-        _sudo=use_sudo,
-    )
+    sites_av_ops = [files.link(
+            name=f"Enable Nginx site {sfile.stem}",
+            path=to_sites_en(sfile),
+            target=to_sites_av(sfile),
+            _sudo=use_sudo,
+        ) for sfile in sites_files]
     # TODO: Listen snippets
     server.service(
         name="Reload Nginx",
         service="nginx",
         reloaded=True,
-        _if=lambda: (nginx_config_op.did_change()
-            or link_op.did_change()),
+        _if=lambda: any(sop.did_change() for sop in [*sites_en_ops, *sites_av_ops]),
         _sudo=use_sudo,
     )
