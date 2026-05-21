@@ -2,7 +2,7 @@ from io import BytesIO
 
 from pyinfra import host
 from pyinfra.api import deploy
-from pyinfra.facts.server import Kernel
+from pyinfra.facts.server import Kernel, LinuxName
 from pyinfra.operations import apt, files, server
 
 from akinfra_shared.tools import needs_sudo, render_template
@@ -77,10 +77,48 @@ def install_sshd_config():
     )
 
 
+def install_apt_sources():
+    if host.get_fact(LinuxName) != "Debian":
+        return
+
+    apt_sources = render_template(
+        "debian.sources.jinja",
+        template_vars={},
+    )
+    files.file(
+        name="Remove classic apt sources",
+        path="/etc/apt/sources.list",
+        present=False,
+        _sudo=needs_sudo(host),
+    )
+    sources_op = files.put(
+        name="Install apt sources",
+        dest="/etc/apt/sources.list.d/debian.sources",
+        src=BytesIO(apt_sources.encode()),
+        _sudo=needs_sudo(host),
+    )
+    release_op = None
+    default_release = getattr(host.data, "apt_default_release", None)
+    if default_release:
+        release_op = files.put(
+            name="Set apt default release",
+            dest="/etc/apt/apt.conf.d/01default-release",
+            src=BytesIO(f'APT::Default-Release "{default_release}";'.encode()),
+            _sudo=needs_sudo(host),
+        )
+
+    apt.update(
+        _sudo=needs_sudo(host),
+        _if=lambda: (sources_op.did_change()
+            or (release_op is not None and release_op.did_change()))
+    )
+
+
 def all():
     mitigate_copyfail()
     mitigate_dirtyfrag()
     install_sshd_config()
+    install_apt_sources()
 
     apt.packages(
         packages=["acl", "fail2ban", "etckeeper"],
