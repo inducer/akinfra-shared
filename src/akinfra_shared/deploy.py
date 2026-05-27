@@ -5,7 +5,7 @@ from typing import Any, ClassVar, Literal
 from warnings import warn
 
 import yaml
-from pydantic import BaseModel, ConfigDict, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 from pyinfra.api import deploy
 from pyinfra.context import host
 from pyinfra.facts.server import Kernel, LinuxName
@@ -232,7 +232,7 @@ class NebulaConfig(BaseModel):
     am_lighthouse: bool = False
     dns: NebulaDNSConfig | None = None
 
-    inbound: list[NebulaFirewallConnection]
+    inbound: list[NebulaFirewallConnection] = Field(default_factory=list)
 
 
 @deploy("Deploy nebula")
