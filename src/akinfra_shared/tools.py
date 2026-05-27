@@ -13,6 +13,7 @@ from pyinfra.api import deploy
 from pyinfra.api.host import Host
 from pyinfra.facts.deb import DebPackage
 from pyinfra.facts.files import FindLinks
+from pyinfra.facts.server import LinuxName
 from pyinfra.operations import apt, files, pipx, server, systemd
 
 
@@ -226,8 +227,12 @@ def deploy_nginx(package_name: str, use_sudo: bool = False):
             _sudo=use_sudo,
         )
     else:
-        # https://security-tracker.debian.org/tracker/CVE-2026-42945
-        needed_ver = "1.30.1-2"
+        needed_ver = {
+            # https://security-tracker.debian.org/tracker/CVE-2026-42945
+            "Debian": "1.30.1-2",
+            "Ubuntu": "1.24.0-2ubuntu7.8",
+        }[host.get_fact(LinuxName)]
+
         installed = parse_debian_version(nginx_status["version"])
         needed = parse_debian_version(needed_ver)
         if installed < needed:
