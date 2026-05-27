@@ -281,6 +281,12 @@ def deploy_nginx(package_name: str, use_sudo: bool = False):
                 present="mysites" in link,
                 _sudo=use_sudo,
             )
+    files.link(
+        name="Remove nginx default site",
+        path="/etc/nginx/sites-enabled/default",
+        present=False,
+        _sudo=use_sudo,
+    )
     sites_av_ops = [files.link(
             name=f"Enable Nginx site {sfile.stem}",
             path=to_sites_en(sfile),
