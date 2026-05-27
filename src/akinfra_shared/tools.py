@@ -277,8 +277,7 @@ def deploy_nginx(package_name: str, use_sudo: bool = False):
             files.link(
                 name=f"Remove {link}",
                 path=link,
-                target="/etc/nginx/sites-available/mysites",
-                present="mysites" in link,
+                present=False,
                 _sudo=use_sudo,
             )
     files.link(
