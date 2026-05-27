@@ -3,7 +3,7 @@ from io import BytesIO
 from pyinfra import host
 from pyinfra.api import deploy
 from pyinfra.facts.server import Kernel, LinuxName
-from pyinfra.operations import apt, files, server
+from pyinfra.operations import apt, files, server, systemd
 
 from akinfra_shared.tools import needs_sudo, render_template
 
@@ -114,11 +114,41 @@ def install_apt_sources():
     )
 
 
+def set_up_network_dhcp() -> None:
+    dhcp_macs = getattr(host.data, "dhcp_mac_addresses", [])
+    for mac in dhcp_macs:
+        network_config = render_template(
+            "dhcp.network.jinja",
+            template_vars={
+                "mac_address": mac,
+            },
+        )
+        config_op = files.put(
+            name=f"Set up DHCP for {mac}",
+            dest=f"/etc/systemd/network/80-dhcp-{mac.replace(':', '-').lower()}.conf",
+                    src=BytesIO(network_config.encode()),
+                    _sudo=needs_sudo(host),
+                )
+        systemd.service(
+            service="systemd-networkd",
+            enabled=True,
+            running=True,
+            _sudo=needs_sudo(host),
+        )
+        systemd.service(
+            service="systemd-networkd",
+            reloaded=True,
+            _if=config_op.did_change,
+            _sudo=needs_sudo(host),
+        )
+
+
 def all():
     mitigate_copyfail()
     mitigate_dirtyfrag()
     install_sshd_config()
     install_apt_sources()
+    set_up_network_dhcp()
 
     apt.packages(
         packages=["acl", "fail2ban", "etckeeper"],
