@@ -162,7 +162,7 @@ def install_default_packages():
                 "curl", "rsync",
                 "htop", "iotop", "btop", "iftop", "mtr",
                 "tcpdump", "ncdu", "mc",
-                "micro", "vim-nox", "neovim", "zsh",
+                "micro", "vim-nox", "zsh",
                 "systemd-coredump",
             ],
             update=True,
