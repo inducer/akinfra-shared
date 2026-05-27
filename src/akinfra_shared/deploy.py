@@ -146,7 +146,7 @@ def set_up_network_dhcp() -> None:
         )
         systemd.service(
             service="systemd-networkd",
-            reloaded=True,
+            restarted=True,
             _if=config_op.did_change,
             _sudo=needs_sudo(host),
         )
