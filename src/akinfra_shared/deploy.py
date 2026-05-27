@@ -150,8 +150,27 @@ def all():
     install_apt_sources()
     set_up_network_dhcp()
 
-    apt.packages(
-        packages=["acl", "fail2ban", "etckeeper"],
-        present=True,
-        _sudo=needs_sudo(host),
-    )
+    if host.get_fact(LinuxName) in ["Debian", "Ubuntu"]:
+        apt.packages(
+            name="Install default packages",
+            packages=[
+                "acl", "fail2ban", "etckeeper", "logrotate",
+                "curl", "rsync",
+                "htop", "iotop", "btop", "iftop", "mtr",
+                "tcpdump", "ncdu", "mc",
+                "micro", "vim-nox", "neovim", "zsh",
+                "systemd-coredump",
+            ],
+            update=True,
+            present=True,
+            _sudo=needs_sudo(host),
+        )
+    if host.get_fact(LinuxName) == "Debian":
+        apt.packages(
+            name="Install default packages",
+            packages=[
+                "apt-listbugs",
+            ],
+            present=True,
+            _sudo=needs_sudo(host),
+        )
