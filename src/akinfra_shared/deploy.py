@@ -53,6 +53,7 @@ def mitigate_dirtyfrag():
             )
 
 
+@deploy("Install SSHd config")
 def install_sshd_config():
     sshd_config = render_template(
         "sshd_config.jinja",
@@ -77,6 +78,7 @@ def install_sshd_config():
     )
 
 
+@deploy("Install APT sources")
 def install_apt_sources():
     if host.get_fact(LinuxName) != "Debian":
         return
@@ -143,6 +145,7 @@ def set_up_network_dhcp() -> None:
         )
 
 
+@deploy("Install default packages")
 def install_default_packages():
     if host.get_fact(LinuxName) in ["Debian", "Ubuntu"]:
         apt.packages(
