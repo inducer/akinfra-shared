@@ -143,13 +143,7 @@ def set_up_network_dhcp() -> None:
         )
 
 
-def all():
-    mitigate_copyfail()
-    mitigate_dirtyfrag()
-    install_sshd_config()
-    install_apt_sources()
-    set_up_network_dhcp()
-
+def install_default_packages():
     if host.get_fact(LinuxName) in ["Debian", "Ubuntu"]:
         apt.packages(
             name="Install default packages",
@@ -174,3 +168,12 @@ def all():
             present=True,
             _sudo=needs_sudo(host),
         )
+
+
+def all():
+    mitigate_copyfail()
+    mitigate_dirtyfrag()
+    install_sshd_config()
+    install_apt_sources()
+    install_default_packages()
+    set_up_network_dhcp()
