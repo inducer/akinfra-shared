@@ -190,7 +190,7 @@ class NebulaDNSConfig(BaseModel):
 class NebulaFirewallConnection(BaseModel):
     model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
 
-    port: int
+    port: int | tuple[int, int]
     proto: Literal["any", "tcp", "udp", "icmp"]
     host: str | None = None
     group: str | None = None
@@ -210,9 +210,12 @@ class NebulaFirewallConnection(BaseModel):
 
     def to_json(self):
         result: dict[str, Any] = {
-            "port": self.port,
             "proto": self.proto,
         }
+        if isinstance(self.port, int):
+            result["port"] = self.port
+        else:
+            result["port"] = f"{self.port[0]}-{self.port[1]}"
 
         if self.host:
             result["host"] = self.host
