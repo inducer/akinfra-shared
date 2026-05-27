@@ -295,3 +295,10 @@ def deploy_nginx(package_name: str, use_sudo: bool = False):
         _if=lambda: any(sop.did_change() for sop in [*sites_en_ops, *sites_av_ops]),
         _sudo=use_sudo,
     )
+    server.service(
+        name="Enable/start Nginx",
+        service="nginx",
+        enabled=True,
+        running=True,
+        _sudo=use_sudo,
+    )
