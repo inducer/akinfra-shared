@@ -156,7 +156,7 @@ def set_up_network_dhcp() -> None:
 def install_default_packages():
     if host.get_fact(LinuxName) in ["Debian", "Ubuntu"]:
         apt.packages(
-            name="Install default packages",
+            name="Install default packages (generic)",
             packages=[
                 "acl", "fail2ban", "etckeeper", "logrotate",
                 "curl", "rsync",
@@ -171,7 +171,7 @@ def install_default_packages():
         )
     if host.get_fact(LinuxName) == "Debian":
         apt.packages(
-            name="Install default packages",
+            name="Install default packages (Debian-specific)",
             packages=[
                 "apt-listbugs",
             ],
