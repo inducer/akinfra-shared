@@ -172,10 +172,11 @@ def render_template(
 
 
 def ensure_uv(*, _sudo: bool = False, _su_user: str | None = None):
-    apt.packages(
-        packages=["pipx"],
-        _sudo=_sudo,
-    )
+    # pipx is now part of default set
+    # apt.packages(
+    #     packages=["pipx"],
+    #     _sudo=_sudo,
+    # )
     pipx.packages(packages=["uv"], _sudo=_sudo, _su_user=_su_user)
 
 

@@ -164,6 +164,7 @@ def install_default_packages():
                 "tcpdump", "ncdu", "mc",
                 "micro", "vim-nox", "zsh",
                 "systemd-coredump",
+                "pipx",
             ],
             update=True,
             present=True,
