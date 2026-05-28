@@ -349,7 +349,7 @@ def deploy_nebula():
         service=service_name,
         enabled=True,
         running=True,
-        reloaded=True,
+        daemon_reload=True,
         _sudo=needs_sudo(host),
     )
     systemd.service(
