@@ -113,7 +113,6 @@ def deploy_nebula():
     if nebula_root is None:
         warn("Not deploying nebula, NEBULA_CONFIG unset", stacklevel=1)
         return
-    system_config = load_nebula_system_config(nebula_root / "config.toml")
     ca_path = nebula_root / "ca.crt"
     key_path = nebula_root / f"{host_config.hostname}.key"
     cert_path = nebula_root / f"{host_config.hostname}.crt"
