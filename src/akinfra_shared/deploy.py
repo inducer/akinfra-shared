@@ -3,14 +3,18 @@ from io import BytesIO
 from akinfra_shared.nebula import deploy_nebula
 from pyinfra.api import deploy
 from pyinfra.context import host
-from pyinfra.facts.server import Kernel, LinuxName
-from pyinfra.operations import apt, files, server, systemd
+from pyinfra.facts.files import Directory
+from pyinfra.facts.server import Kernel, LinuxName, OsRelease
+from pyinfra.operations import apk, apt, files, server, systemd
 
 from akinfra_shared.tools import needs_sudo, render_template
 
 
 @deploy("Mitigate Copy Fail")
 def mitigate_copyfail():
+    if not host.get_fact(Directory, "/etc/modprobe.d"):
+        return
+
     # https://copy.fail/
     if host.get_fact(Kernel) == "Linux":
         mod_name = "algif_aead"
@@ -31,6 +35,9 @@ def mitigate_copyfail():
 
 @deploy("Mitigate Dirtyfrag")
 def mitigate_dirtyfrag():
+    if not host.get_fact(Directory, "/etc/modprobe.d"):
+        return
+
     # https://www.openwall.com/lists/oss-security/2026/05/07/8
     # Also mitigates copy-fail 2: https://github.com/0xdeadbeefnetwork/Copy_Fail2-Electric_Boogaloo/issues/8#issuecomment-4408466147
     if host.get_fact(Kernel) == "Linux":
@@ -56,6 +63,9 @@ def mitigate_dirtyfrag():
 
 @deploy("Install SSHd config")
 def install_sshd_config():
+    if not host.get_fact(Directory, "/etc/ssh"):
+        return
+
     sshd_config = render_template(
         "sshd_config.jinja",
         template_vars={
@@ -174,7 +184,29 @@ def install_default_packages():
             _sudo=needs_sudo(host),
         )
 
+    if host.get_fact(LinuxName).startswith("OpenWrt"):
+        apk.packages(
+            name="Default OpenWrt packages",
+            packages=[
+                "htop", "tmux",
+                "luci-app-upnp",
+                "luci-app-ddns",
 
+                "kmod-usb2", "kmod-usb3", "usbutils",
+
+                "block-mount", "e2fsprogs", "kmod-fs-ext4", "kmod-usb-storage",
+                "openssh-sftp-server",
+                "etherwake", "luasocket",
+            ],
+            update=True
+        )
+
+    files.download(
+        name="Download default .tmux.conf",
+        src="https://tiker.net/tmp/.tmux.conf",
+        dest="/root/.tmux.conf",
+        _sudo=needs_sudo(host),
+    )
 
 
 def all():
