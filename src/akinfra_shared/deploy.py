@@ -203,7 +203,7 @@ def install_default_packages():
 
     files.download(
         name="Download default .tmux.conf",
-        src="https://tiker.net/tmp/.tmux.conf",
+        src="https://raw.githubusercontent.com/inducer/config-and-scripts/refs/heads/main/dotfiles/.tmux.conf",
         dest="/root/.tmux.conf",
         _sudo=needs_sudo(host),
     )
