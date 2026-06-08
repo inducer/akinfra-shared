@@ -29,7 +29,7 @@ def set_up_valkey():
         name="Adjust valkey listen on any interface",
         path="/etc/valkey/valkey.conf",
         line="^bind .*$",
-        replace="bind * -::* ",
+        replace="bind * -::*",
         _sudo=needs_sudo(host),
     ).did_change
     vk_default_change = files.line(
