@@ -45,7 +45,7 @@ def set_up_valkey():
     restart_valkey([vk_listen_change, vk_default_change])
 
 
-def add_valkey_user(user: str, password_id: str):
+def add_valkey_user(user: str, password_id: str, all_commands: bool = False):
     bw_user = get_bitwarden_username(password_id)
     bw_password = get_bitwarden_password(password_id)
     assert user == bw_user
@@ -53,7 +53,12 @@ def add_valkey_user(user: str, password_id: str):
     vk_user_change = files.block(
         name=f"Set up valkey {user} user",
         path="/etc/valkey/valkey.conf",
-        content=f"user {user} on >{bw_password} ~* &* +@all -@dangerous +keys +flushdb +flushall",
+        content=(
+            f"user {user} on >{bw_password} ~* &* +@all"
+            if all_commands else
+            f"user {user} on >{bw_password} ~* &* +@all -@dangerous +keys +flushdb +flushall"
+        ),
+
         marker=f"# {{mark}} VALKEY {user} PYINFRA BLOCK",
         _sudo=needs_sudo(host),
     ).did_change
