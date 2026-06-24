@@ -16,7 +16,7 @@ from pyinfra.api import deploy
 from pyinfra.api.host import Host
 from pyinfra.facts.deb import DebPackage
 from pyinfra.facts.files import FindLinks
-from pyinfra.facts.server import LinuxName
+from pyinfra.facts.server import Arch, LinuxName
 from pyinfra.operations import apt, files, pipx, server, systemd
 
 
@@ -341,3 +341,10 @@ def download_and_dearmor_gpg_key(url: str) -> bytes:
     finally:
         if os.path.exists(tmp_armored_path):
             os.remove(tmp_armored_path)
+
+
+def host_deb_arch():
+    return {
+        "x86_64": "amd64",
+        "aarch64": "arm64",
+    }[host.get_fact(Arch)]
