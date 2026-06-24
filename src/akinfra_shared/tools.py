@@ -1,3 +1,4 @@
+import os
 import re
 import subprocess
 from collections.abc import Callable, Mapping, Sequence
@@ -5,7 +6,9 @@ from dataclasses import dataclass
 from importlib import resources
 from io import BytesIO
 from pathlib import Path
+import tempfile
 from typing import TypeAlias, cast
+from urllib.request import urlopen
 
 from minijinja import Environment
 from pyinfra import host
@@ -308,3 +311,33 @@ def deploy_nginx(package_name: str, use_sudo: bool = False):
         running=True,
         _sudo=use_sudo,
     )
+
+
+def download_and_dearmor_gpg_key(url: str) -> bytes:
+    try:
+        with urlopen(url) as response:
+            # Read the ASCII armored content
+            armored_data = response.read()
+    except Exception as e:
+        raise IOError(f"Failed to download key from {url}: {e}")
+
+    with tempfile.NamedTemporaryFile(delete=False) as tmp_armored:
+        tmp_armored.write(armored_data)
+        tmp_armored_path = tmp_armored.name
+
+    try:
+        process = subprocess.Popen(
+            ["gpg", "--dearmor", '-q', "-o", "-", tmp_armored_path],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE
+        )
+        stdout, stderr = process.communicate()
+
+        if process.returncode != 0:
+            raise RuntimeError(f"GPG dearmor failed: {stderr.decode().strip()}")
+
+        return stdout
+
+    finally:
+        if os.path.exists(tmp_armored_path):
+            os.remove(tmp_armored_path)
