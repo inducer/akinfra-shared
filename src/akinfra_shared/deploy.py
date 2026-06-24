@@ -167,7 +167,7 @@ def install_default_packages():
                 "htop", "iotop", "btop", "iftop", "mtr",
                 "tcpdump", "ncdu", "mc",
                 "micro", "vim-nox", "zsh",
-                "systemd-coredump",
+                "systemd-coredump", "mdadm",
                 "pipx",
             ],
             update=True,
