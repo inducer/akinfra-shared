@@ -1,6 +1,7 @@
 from io import BytesIO
 
 from akinfra_shared.nebula import deploy_nebula
+from akinfra_shared.restic import deploy_restic_backup
 from pyinfra.api import deploy
 from pyinfra.context import host
 from pyinfra.facts.files import Directory
@@ -202,3 +203,4 @@ def all():
     install_default_packages(_sudo=needs_sudo(host))
     set_up_network_dhcp(_sudo=needs_sudo(host))
     deploy_nebula(_sudo=needs_sudo(host))
+    deploy_restic_backup(_sudo=needs_sudo(host))

@@ -1,0 +1,19 @@
+#! /bin/bash
+
+export RESTIC_REPOSITORY="rest:https://{{ user }}:$(cat /etc/restic-repo-password)@{{ host }}:{{ port }}{{path}}"
+export RESTIC_PASSWORD_FILE=/etc/restic-password
+export RESTIC_CACERT=/etc/restic-public-key.pem
+
+# https://stackoverflow.com/a/28776166
+(return 0 2>/dev/null) && sourced=1 || sourced=0
+
+if [[ $sourced = 0 ]]; then
+    set -eo pipefail
+    {% for root in roots %}
+    restic backup "{{ root.path }}" \
+        {% for exclude in root.excludes -%}
+            --exclude "{{ exclude }}" \
+        {% endfor -%}
+        --one-file-system
+    {% endfor %}
+fi
