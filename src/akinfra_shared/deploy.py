@@ -157,11 +157,15 @@ def install_default_packages():
                 "tcpdump", "ncdu", "mc",
                 "micro", "vim-nox", "zsh",
                 "systemd-coredump", "mdadm",
-                "pipx",
+                "pipx", "cronie",
             ],
             update=True,
             present=True,
         )
+    apt.packages(
+        packages=["cron"],
+        present=False
+    )
     if host.get_fact(LinuxName) == "Debian":
         apt.packages(
             name="Install default packages (Debian-specific)",
