@@ -106,7 +106,6 @@ def deploy_nebula():
     apt.packages(
         name="Install package",
         packages=["nebula"],
-        present=True,
     )
     nebula_root = get_nebula_root_path()
     if nebula_root is None:
