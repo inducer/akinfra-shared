@@ -337,3 +337,45 @@ def host_deb_arch():
         "x86_64": "amd64",
         "aarch64": "arm64",
     }[host.get_fact(Arch)]
+
+
+timer_service_content = """[Unit]
+After=network.target
+
+[Service]
+Type=oneshot
+User={user}
+ExecStart={command}
+"""
+
+timer_content = """[Unit]
+[Timer]
+{when}
+Persistent={persistent}
+
+[Install]
+WantedBy=timers.target
+"""
+
+
+def deploy_systemd_timer(base_name: str, command: str, user: str, when: str, persistent: bool = True):
+    files.put(
+        name=f"Install {base_name} unit",
+        src=BytesIO(timer_service_content.format(user=user, command=command).encode()),
+        dest=f"/etc/systemd/system/{base_name}.service"
+    )
+
+    files.put(
+        name=f"Install {base_name} timer",
+        dest=f"/etc/systemd/system/{base_name}.timer",
+        src=BytesIO(
+            timer_content.format(when=when, persistent=str(persistent).lower()).encode()),
+    )
+
+    systemd.service(
+        name=f"Activate {base_name} timer",
+        service=f"{base_name}.timer",
+        enabled=True,
+        running=True,
+        daemon_reload=True,
+    )
