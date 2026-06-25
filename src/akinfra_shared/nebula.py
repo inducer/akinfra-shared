@@ -107,7 +107,6 @@ def deploy_nebula():
         name="Install package",
         packages=["nebula"],
         present=True,
-        _sudo=needs_sudo(host),
     )
     nebula_root = get_nebula_root_path()
     if nebula_root is None:
@@ -121,21 +120,18 @@ def deploy_nebula():
         dest="/etc/nebula/ca.crt",
         src=BytesIO(ca_path.read_bytes()),
         mode="600",
-        _sudo=needs_sudo(host),
     )
     files.put(
         name="Install host key",
         dest=f"/etc/nebula/{host_config.hostname}.key",
         src=BytesIO(key_path.read_bytes()),
         mode="600",
-        _sudo=needs_sudo(host),
     )
     files.put(
         name="Install host cert",
         dest=f"/etc/nebula/{host_config.hostname}.crt",
         src=BytesIO(cert_path.read_bytes()),
         mode="600",
-        _sudo=needs_sudo(host),
     )
     config_data: dict[str, Any] = {
         "pki": {
@@ -193,7 +189,6 @@ def deploy_nebula():
         name="Write config file",
         dest=f"/etc/nebula/{host_config.hostname}.yml",
         src=BytesIO(yaml.dump(config_data, Dumper=yaml.Dumper).encode()),
-        _sudo=needs_sudo(host),
     )
     service_name = f"nebula@{host_config.hostname}"
     systemd.service(
@@ -202,12 +197,10 @@ def deploy_nebula():
         enabled=True,
         running=True,
         daemon_reload=True,
-        _sudo=needs_sudo(host),
     )
     systemd.service(
         name="Restart nebula daemon",
         service=service_name,
         restarted=True,
         _if=config_store_op.did_change,
-        _sudo=needs_sudo(host),
     )

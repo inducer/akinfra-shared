@@ -16,21 +16,20 @@ def restart_valkey(if_: Sequence[Callable[[], bool]]):
         service="valkey-server",
         restarted=True,
         _if=lambda: any(func() for func in if_),
-        _sudo=needs_sudo(host),
     )
 
 
 def set_up_valkey():
+    # assumed to be called from a @deploy-deocrated function
+
     apt.packages(
         packages=["valkey-server", "valkey-tools"],
-        _sudo=needs_sudo(host),
     )
     vk_listen_change = files.line(
         name="Adjust valkey listen on any interface",
         path="/etc/valkey/valkey.conf",
         line="^bind .*$",
         replace="bind * -::*",
-        _sudo=needs_sudo(host),
     ).did_change
     vk_default_change = files.line(
         name="Adjust valkey default user",
@@ -39,13 +38,14 @@ def set_up_valkey():
         replace="user default on "
             f">{get_bitwarden_password(host.data.valkey_default_password_id)} "
             "sanitize-payload ~* &* +@all",
-        _sudo=needs_sudo(host),
     ).did_change
 
     restart_valkey([vk_listen_change, vk_default_change])
 
 
 def add_valkey_user(user: str, password_id: str, all_commands: bool = False):
+    # assumed to be called from a @deploy-deocrated function
+
     bw_user = get_bitwarden_username(password_id)
     bw_password = get_bitwarden_password(password_id)
     assert user == bw_user
@@ -60,6 +60,5 @@ def add_valkey_user(user: str, password_id: str, all_commands: bool = False):
         ),
 
         marker=f"# {{mark}} VALKEY {user} PYINFRA BLOCK",
-        _sudo=needs_sudo(host),
     ).did_change
     restart_valkey([vk_user_change])

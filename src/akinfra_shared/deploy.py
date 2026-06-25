@@ -23,13 +23,11 @@ def mitigate_copyfail():
             path="/etc/modprobe.d/copyfail.conf",
             line=f"install {mod_name} /bin/false",
             ensure_newline=True,
-            _sudo=needs_sudo(host),
         )
         server.modprobe(
             name=f"Remove {mod_name} from kernel",
             module=mod_name,
             present=False,
-            _sudo=needs_sudo(host),
         )
 
 
@@ -51,13 +49,11 @@ def mitigate_dirtyfrag():
                 path="/etc/modprobe.d/dirtyfrag.conf",
                 line=f"install {mod_name} /bin/false",
                 ensure_newline=True,
-                _sudo=needs_sudo(host),
             )
             server.modprobe(
                 name=f"Remove {mod_name} from kernel",
                 module=mod_name,
                 present=False,
-                _sudo=needs_sudo(host),
             )
 
 
@@ -78,14 +74,12 @@ def install_sshd_config():
         name="Install SSHD config",
         dest="/etc/ssh/sshd_config",
         src=BytesIO(sshd_config.encode()),
-        _sudo=needs_sudo(host),
     )
     server.service(
         name="Reload SSH",
         service="ssh",
         reloaded=True,
         _if=sshd_config_op.did_change,
-        _sudo=needs_sudo(host),
     )
 
 
@@ -102,13 +96,11 @@ def install_apt_sources():
         name="Remove classic apt sources",
         path="/etc/apt/sources.list",
         present=False,
-        _sudo=needs_sudo(host),
     )
     sources_op = files.put(
         name="Install apt sources",
         dest="/etc/apt/sources.list.d/debian.sources",
         src=BytesIO(apt_sources.encode()),
-        _sudo=needs_sudo(host),
     )
     release_op = None
     default_release = getattr(host.data, "apt_default_release", None)
@@ -117,16 +109,15 @@ def install_apt_sources():
             name="Set apt default release",
             dest="/etc/apt/apt.conf.d/01default-release",
             src=BytesIO(f'APT::Default-Release "{default_release}";'.encode()),
-            _sudo=needs_sudo(host),
         )
 
     apt.update(
-        _sudo=needs_sudo(host),
         _if=lambda: (sources_op.did_change()
             or (release_op is not None and release_op.did_change()))
     )
 
 
+@deploy("Set up network via systemd-networkd/DHCP")
 def set_up_network_dhcp() -> None:
     dhcp_macs = getattr(host.data, "dhcp_mac_addresses", [])
     for mac in dhcp_macs:
@@ -140,19 +131,16 @@ def set_up_network_dhcp() -> None:
             name=f"Set up DHCP for {mac}",
             dest=f"/etc/systemd/network/80-dhcp-{mac.replace(':', '-').lower()}.conf",
                     src=BytesIO(network_config.encode()),
-                    _sudo=needs_sudo(host),
                 )
         systemd.service(
             service="systemd-networkd",
             enabled=True,
             running=True,
-            _sudo=needs_sudo(host),
         )
         systemd.service(
             service="systemd-networkd",
             restarted=True,
             _if=config_op.did_change,
-            _sudo=needs_sudo(host),
         )
 
 
@@ -172,7 +160,6 @@ def install_default_packages():
             ],
             update=True,
             present=True,
-            _sudo=needs_sudo(host),
         )
     if host.get_fact(LinuxName) == "Debian":
         apt.packages(
@@ -181,7 +168,6 @@ def install_default_packages():
                 "apt-listbugs",
             ],
             present=True,
-            _sudo=needs_sudo(host),
         )
 
     if host.get_fact(LinuxName).startswith("OpenWrt"):
@@ -205,15 +191,14 @@ def install_default_packages():
         name="Download default .tmux.conf",
         src="https://raw.githubusercontent.com/inducer/config-and-scripts/refs/heads/main/dotfiles/.tmux.conf",
         dest="/root/.tmux.conf",
-        _sudo=needs_sudo(host),
     )
 
 
 def all():
-    mitigate_copyfail()
-    mitigate_dirtyfrag()
-    install_sshd_config()
-    install_apt_sources()
-    install_default_packages()
-    set_up_network_dhcp()
-    deploy_nebula()
+    mitigate_copyfail(_sudo=needs_sudo(host))
+    mitigate_dirtyfrag(_sudo=needs_sudo(host))
+    install_sshd_config(_sudo=needs_sudo(host))
+    install_apt_sources(_sudo=needs_sudo(host))
+    install_default_packages(_sudo=needs_sudo(host))
+    set_up_network_dhcp(_sudo=needs_sudo(host))
+    deploy_nebula(_sudo=needs_sudo(host))

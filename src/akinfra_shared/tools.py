@@ -174,26 +174,24 @@ def render_template(
     )
 
 
-def ensure_uv(*, _sudo: bool = False, _su_user: str | None = None):
+def ensure_uv(*, _su_user: str | None = None):
     # pipx is now part of default set
     # apt.packages(
     #     packages=["pipx"],
-    #     _sudo=_sudo,
     # )
-    pipx.packages(packages=["uv"], _sudo=_sudo, _su_user=_su_user)
+    pipx.packages(packages=["uv"], _su_user=_su_user)
 
 
 def install_service(
             name: str,
             content: str,
-            *, _sudo: bool = False,
+            *,
             restart_if: Callable[[], bool] | None = None
         ):
     files.put(
         name=f"Install {name} systemd service file",
         dest=f"/etc/systemd/system/{name}.service",
         src=BytesIO(content.encode()),
-        _sudo=_sudo,
     )
     systemd.service(
         name=f"Enable {name} systemd service",
@@ -201,19 +199,17 @@ def install_service(
         running=True,
         enabled=True,
         daemon_reload=True,
-        _sudo=_sudo,
     )
     systemd.service(
         name=f"Restart {name} systemd service",
         service=name,
         restarted=True,
         _if=restart_if,
-        _sudo=_sudo,
     )
 
 
 @deploy("Deploy Nginx")
-def deploy_nginx(package_name: str, use_sudo: bool = False):
+def deploy_nginx(package_name: str):
     sites_files: list[Path] = list(resources
             .files(package_name)
             .joinpath(f"data/nginx/{host.name}")
@@ -228,7 +224,6 @@ def deploy_nginx(package_name: str, use_sudo: bool = False):
     if nginx_status is None:
         apt.packages(
             packages=[nginx_package_name],
-            _sudo=use_sudo,
         )
     else:
         needed_ver = {
@@ -247,14 +242,12 @@ def deploy_nginx(package_name: str, use_sudo: bool = False):
                     *([f"nginx={needed_ver}"] if nginx_use_full else [])
                 ],
                 update=True,
-                _sudo=use_sudo,
             )
 
     files.file(
         name="Remove wreckage from past bugs",
         path="/etc/sites-available/mysites",
         present=False,
-        _sudo=use_sudo,
     )
 
     def to_sites_av(p: Path):
@@ -263,11 +256,12 @@ def deploy_nginx(package_name: str, use_sudo: bool = False):
     def to_sites_en(p: Path):
         return f"/etc/nginx/sites-enabled/{p.stem}"
 
-    sites_en_ops = [files.put(
-        name=f"Install Nginx site {sfile.stem}",
-        dest=to_sites_av(sfile),
-        src=BytesIO(sfile.read_text().encode()),
-        _sudo=use_sudo)
+    sites_en_ops = [
+        files.put(
+            name=f"Install Nginx site {sfile.stem}",
+            dest=to_sites_av(sfile),
+            src=BytesIO(sfile.read_text().encode()),
+            )
         for sfile in sites_files
     ]
     sites_av_names = [to_sites_av(sfile) for sfile in sites_files]
@@ -282,19 +276,16 @@ def deploy_nginx(package_name: str, use_sudo: bool = False):
                 name=f"Remove {link}",
                 path=link,
                 present=False,
-                _sudo=use_sudo,
             )
     files.link(
         name="Remove nginx default site",
         path="/etc/nginx/sites-enabled/default",
         present=False,
-        _sudo=use_sudo,
     )
     sites_av_ops = [files.link(
             name=f"Enable Nginx site {sfile.stem}",
             path=to_sites_en(sfile),
             target=to_sites_av(sfile),
-            _sudo=use_sudo,
         ) for sfile in sites_files]
     # TODO: Listen snippets
     server.service(
@@ -302,14 +293,12 @@ def deploy_nginx(package_name: str, use_sudo: bool = False):
         service="nginx",
         reloaded=True,
         _if=lambda: any(sop.did_change() for sop in [*sites_en_ops, *sites_av_ops]),
-        _sudo=use_sudo,
     )
     server.service(
         name="Enable/start Nginx",
         service="nginx",
         enabled=True,
         running=True,
-        _sudo=use_sudo,
     )
 
 
