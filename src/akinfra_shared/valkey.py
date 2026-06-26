@@ -1,13 +1,12 @@
-from collections.abc import Sequence
-from typing import Callable
+from collections.abc import Callable, Sequence
+
+from pyinfra import host
+from pyinfra.operations import apt, files, systemd
 
 from akinfra_shared.tools import (
     get_bitwarden_password,
     get_bitwarden_username,
-    needs_sudo,
 )
-from pyinfra import host
-from pyinfra.operations import apt, files, systemd
 
 
 def restart_valkey(if_: Sequence[Callable[[], bool]]):

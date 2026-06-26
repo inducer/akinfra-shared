@@ -1,12 +1,12 @@
 from io import BytesIO
 from typing import ClassVar
 
-from akinfra_shared.tools import get_bitwarden_password, render_template
-from pydantic import ConfigDict
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from pyinfra.api.deploy import deploy
 from pyinfra.context import host
 from pyinfra.operations import apt, files
+
+from akinfra_shared.tools import get_bitwarden_password, render_template
 
 
 class ResticRoot(BaseModel):

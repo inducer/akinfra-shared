@@ -1,13 +1,14 @@
+import contextlib
 import os
 import re
 import subprocess
+import tempfile
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from importlib import resources
 from io import BytesIO
 from pathlib import Path
-import tempfile
-from typing import TypeAlias, cast
+from typing import cast
 from urllib.request import urlopen
 
 from minijinja import Environment
@@ -19,10 +20,9 @@ from pyinfra.facts.files import FindLinks
 from pyinfra.facts.server import Arch, LinuxName
 from pyinfra.operations import apt, files, pipx, server, systemd
 
-
-HostData: TypeAlias = Mapping[str, object]
-HostWithData: TypeAlias = tuple[str, HostData] | str
-Inventory: TypeAlias = Mapping[str, Sequence[HostWithData]]
+type HostData = Mapping[str, object]
+type HostWithData = tuple[str, HostData] | str
+type Inventory = Mapping[str, Sequence[HostWithData]]
 
 
 def get_bitwarden_username(search_term_or_id: str) -> str:
@@ -82,10 +82,8 @@ def parse_debian_version(v_string: str) -> DebianVersion:
     remainder = v_string
     if ":" in v_string:
         epoch_part, remainder = v_string.split(":", 1)
-        try:
+        with contextlib.suppress(ValueError):
             epoch = int(epoch_part)
-        except ValueError:
-            pass  # Fallback to 0 if epoch is non-numeric
 
     # 2. Split Upstream and Revision
     upstream_str = remainder
@@ -303,12 +301,8 @@ def deploy_nginx(package_name: str):
 
 
 def download_and_dearmor_gpg_key(url: str) -> bytes:
-    try:
-        with urlopen(url) as response:
-            # Read the ASCII armored content
-            armored_data = response.read()
-    except Exception as e:
-        raise IOError(f"Failed to download key from {url}: {e}")
+    with urlopen(url) as response:
+        armored_data = response.read()
 
     with tempfile.NamedTemporaryFile(delete=False) as tmp_armored:
         tmp_armored.write(armored_data)
@@ -316,7 +310,7 @@ def download_and_dearmor_gpg_key(url: str) -> bytes:
 
     try:
         process = subprocess.Popen(
-            ["gpg", "--dearmor", '-q', "-o", "-", tmp_armored_path],
+            ["gpg", "--dearmor", "-q", "-o", "-", tmp_armored_path],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE
         )

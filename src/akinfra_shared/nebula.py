@@ -1,18 +1,15 @@
 import os
+import tomllib
 from io import BytesIO
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, ClassVar, Literal, Self
 from warnings import warn
 
-import tomllib
-from typing_extensions import ClassVar, Self
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from pyinfra.api import deploy
 from pyinfra.context import host
 from pyinfra.operations import apt, files, systemd
-
-from akinfra_shared.tools import needs_sudo
 
 
 class CAConfig(BaseModel):
@@ -101,7 +98,6 @@ def deploy_nebula():
     if nebula_config is None:
         return
     host_config = NebulaHostConfig.model_validate(nebula_config)
-
 
     apt.packages(
         name="Install package",

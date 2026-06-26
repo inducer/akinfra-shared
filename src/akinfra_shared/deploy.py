@@ -1,13 +1,13 @@
 from io import BytesIO
 
-from akinfra_shared.nebula import deploy_nebula
-from akinfra_shared.restic import deploy_restic_backup
 from pyinfra.api import deploy
 from pyinfra.context import host
 from pyinfra.facts.files import Directory
 from pyinfra.facts.server import Kernel, LinuxName
 from pyinfra.operations import apk, apt, files, server, systemd
 
+from akinfra_shared.nebula import deploy_nebula
+from akinfra_shared.restic import deploy_restic_backup
 from akinfra_shared.tools import needs_sudo, render_template
 
 
