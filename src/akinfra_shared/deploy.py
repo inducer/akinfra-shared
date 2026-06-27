@@ -1,4 +1,6 @@
+from dataclasses import dataclass, field
 from io import BytesIO
+from typing import Literal
 
 from pyinfra.api import deploy
 from pyinfra.context import host
@@ -9,6 +11,8 @@ from pyinfra.operations import apk, apt, files, server, systemd
 from akinfra_shared.nebula import deploy_nebula
 from akinfra_shared.restic import deploy_restic_backup
 from akinfra_shared.tools import needs_sudo, render_template
+
+MY_MODULE = "akinfra_shared"
 
 
 @deploy("Mitigate Copy Fail")
@@ -199,6 +203,49 @@ def install_default_packages():
     )
 
 
+@dataclass(frozen=True, kw_only=True)
+class DebianEximConfig:
+    config_type: Literal["internet", "local", "smarthost", "satellite", "none"]
+    other_hostnames: list[str] = field(default_factory=list)
+    local_interfaces: list[str] = field(default_factory=lambda: ["127.0.0.1", "::1"])
+    read_host: str = ""
+    relay_domains: list[str] = field(default_factory=list)
+    relay_nets: list[str] = field(default_factory=list)
+    smarthosts: list[str] = field(default_factory=list)
+    use_split_config: bool = False
+    hide_mailname: bool = False
+    mailname_in_oh: bool = True
+    local_delivery: Literal["mail_spool", "maildir_home"]
+
+
+@deploy("Install exim4 config")
+def deploy_exim4_config():
+    if not hasattr(host.data, "exim4_config"):
+        return
+
+    config = host.data.exim4_config
+    assert isinstance(config, DebianEximConfig)
+    conf_content = render_template(
+        "update-exim4.conf.conf.jinja",
+        module_name=MY_MODULE,
+        template_vars={
+            "config": config,
+        })
+    config_change_op = files.put(
+        name="Update config",
+        dest="/etc/exim4/update-exim4.conf.conf",
+        src=BytesIO(conf_content.encode()),
+    )
+    server.shell(
+        name="Reset pyodided lock file",
+        commands=[
+            "update-exim4.conf",
+            "systemctl restart exim4"
+            ],
+        _if=config_change_op.did_change,
+    )
+
+
 def all():
     mitigate_copyfail(_sudo=needs_sudo(host))
     mitigate_dirtyfrag(_sudo=needs_sudo(host))
@@ -208,3 +255,4 @@ def all():
     set_up_network_dhcp(_sudo=needs_sudo(host))
     deploy_nebula(_sudo=needs_sudo(host))
     deploy_restic_backup(_sudo=needs_sudo(host))
+    deploy_exim4_config(_sudo=needs_sudo(host))
