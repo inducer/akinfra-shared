@@ -1,7 +1,6 @@
+from dataclasses import dataclass
 from io import BytesIO
-from typing import ClassVar
 
-from pydantic import BaseModel, ConfigDict
 from pyinfra.api.deploy import deploy
 from pyinfra.context import host
 from pyinfra.operations import apt, files
@@ -9,16 +8,14 @@ from pyinfra.operations import apt, files
 from akinfra_shared.tools import get_bitwarden_password, render_template
 
 
-class ResticRoot(BaseModel):
-    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
-
+@dataclass(frozen=True, kw_only=True)
+class ResticRoot:
     path: str
     excludes: list[str]
 
 
-class ResticConfig(BaseModel):
-    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
-
+@dataclass(frozen=True, kw_only=True)
+class ResticConfig:
     user: str
     host: str
     path: str
@@ -77,7 +74,8 @@ def deploy_restic_backup() -> None:
     if not hasattr(host.data, "restic_config"):
         return
 
-    config = ResticConfig.model_validate(host.data.restic_config)
+    config = host.data.restic_config
+    assert isinstance(config, ResticConfig)
 
     apt.packages(
         name="Install package",
