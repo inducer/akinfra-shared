@@ -236,13 +236,23 @@ def deploy_exim4_config():
         dest="/etc/exim4/update-exim4.conf.conf",
         src=BytesIO(conf_content.encode()),
     )
+    aliases_content = render_template(
+        "aliases.jinja",
+        module_name=MY_MODULE,
+        template_vars={
+        })
+    aliases_change_op = files.put(
+        name="Update aliases",
+        dest="/etc/aliases",
+        src=BytesIO(aliases_content.encode()),
+    )
     server.shell(
-        name="Reset pyodided lock file",
+        name="Update config  and restart",
         commands=[
             "update-exim4.conf",
             "systemctl restart exim4"
             ],
-        _if=config_change_op.did_change,
+        _if=lambda: config_change_op.did_change() or aliases_change_op.did_change(),
     )
 
 
