@@ -256,6 +256,43 @@ def deploy_exim4_config():
     )
 
 
+@dataclass(frozen=True, kw_only=True)
+class UnattendedUpgradesConfig:
+    update_non_security: bool = False
+    auto_reboot: bool = False
+    allow_testing: bool = False
+
+
+@deploy("Deploy unattended-upgrades")
+def deploy_unattended_upgrades():
+    # https://linuxcapable.com/how-to-configure-unattended-upgrades-on-debian-linux/
+    # zless /usr/share/doc/unattended-upgrades/README.md.gz
+    apt.packages(
+        packages=["unattended-upgrades"],
+        present=True,
+    )
+
+    if not hasattr(host.data, "unattended_upgrades_config"):
+        return
+    config = host.data.unattended_upgrades_config
+    assert isinstance(config, UnattendedUpgradesConfig)
+
+    if host.get_fact(LinuxName) != "Debian":
+        raise ValueError("cannot configure unattended-upgrades for non-Debian host")
+
+    conf_content = render_template(
+        "unattended-upgrades.jinja",
+        module_name=MY_MODULE,
+        template_vars={
+            "config": config,
+        })
+    files.put(
+        name="Update config",
+        dest="/etc/apt/apt.conf.d/50unattended-upgrades",
+        src=BytesIO(conf_content.encode()),
+    )
+
+
 def all():
     mitigate_copyfail(_sudo=needs_sudo(host))
     mitigate_dirtyfrag(_sudo=needs_sudo(host))
@@ -266,3 +303,4 @@ def all():
     deploy_nebula(_sudo=needs_sudo(host))
     deploy_restic_backup(_sudo=needs_sudo(host))
     deploy_exim4_config(_sudo=needs_sudo(host))
+    deploy_unattended_upgrades(_sudo=needs_sudo(host))
