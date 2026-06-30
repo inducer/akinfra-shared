@@ -47,9 +47,9 @@ Unattended-Upgrade::Origins-Pattern {
 
         "origin=Debian,a=stable,label=Debian-Security";
 {% if config.update_non_security %}
-        "origin=Debian,a=stable;
+        "origin=Debian,a=stable";
 {% if config.allow_testing %}
-        "origin=Debian,a=testing;
+        "origin=Debian,a=testing";
 {% endif %}
 {% endif %}
 };
