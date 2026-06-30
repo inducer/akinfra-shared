@@ -285,12 +285,53 @@ def deploy_nginx(package_name: str):
             path=to_sites_en(sfile),
             target=to_sites_av(sfile),
         ) for sfile in sites_files]
-    # TODO: Listen snippets
+
+    snippet_files: list[Path] = list(resources
+            .files(package_name)
+            .joinpath(f"data/nginx/{host.name}")
+            .glob("*.snippet")
+    )
+    snippets_ops = [
+        files.put(
+            name=f"Install Nginx snippet {sfile.stem}",
+            dest=f"/etc/nginx/{sfile.stem}",
+            src=BytesIO(sfile.read_text().encode()),
+            )
+        for sfile in snippet_files
+    ]
+
+    # NB: There is a conf.d, but it gets included inside a 'http' block
+    conf_files: list[Path] = list(resources
+            .files(package_name)
+            .joinpath(f"data/nginx/{host.name}")
+            .glob("*.conf")
+    )
+    conf_ops = [
+        files.put(
+            name=f"Install Nginx conf piece {sfile.name}",
+            dest=f"/etc/nginx/conf-pieces/{sfile.name}",
+            src=BytesIO(sfile.read_text().encode()),
+            )
+        for sfile in conf_files
+    ]
+    conf_block_op = files.block(
+        name="Ensure .conf bits get included",
+        path="/etc/nginx/nginx.conf",
+        content="include /etc/nginx/conf-pieces/*.conf;",
+        marker="# {mark} PYINFRA AK conf include",
+    )
+
     server.service(
         name="Reload Nginx",
         service="nginx",
         reloaded=True,
-        _if=lambda: any(sop.did_change() for sop in [*sites_en_ops, *sites_av_ops]),
+        _if=lambda: any(sop.did_change() for sop in [
+            *sites_en_ops,
+            *sites_av_ops,
+            *snippets_ops,
+            *conf_ops,
+            conf_block_op,
+        ]),
     )
     server.service(
         name="Enable/start Nginx",
