@@ -39,6 +39,13 @@ def get_bitwarden_password(search_term_or_id: str) -> str:
     ).strip()
 
 
+def get_bitwarden_notes(search_term_or_id: str) -> str:
+    return subprocess.check_output(
+        ["rbw", "get", "--field", "notes", search_term_or_id],
+        text=True
+    ).strip()
+
+
 def sudo_from_bitwarden(inventory: Inventory) -> Inventory:
     def add_sudo_password(hwd: HostWithData) -> HostWithData:
         if isinstance(hwd, str):
