@@ -1,13 +1,27 @@
 #! /bin/bash
 
-export RESTIC_REPOSITORY="rest:https://{{ user }}:$(cat /etc/restic-repo-password)@{{ host }}:{{ port }}{{path}}"
-export RESTIC_PASSWORD_FILE=/etc/restic-password
-export RESTIC_CACERT=/etc/restic-public-key.pem
+# set -eo pipefail lives below
+
+TARGET=${1:-{{ default_target }}}
+
+if [ -z "$TARGET" ]; then
+    echo "No target specified, exiting."
+    exit 1
+fi
+
+declare -A target_to_url
+{% for name, repo in target_to_url.items() %}
+target_to_url[{{ name }}]="{{ repo }}"
+{% endfor %}
+
+export RESTIC_REPOSITORY="${target_to_url[$TARGET]}"
+export RESTIC_PASSWORD_FILE="/etc/restic-password-$TARGET"
+export RESTIC_CACERT="/etc/restic-public-key-$TARGET.pem"
 
 # https://stackoverflow.com/a/28776166
 (return 0 2>/dev/null) && sourced=1 || sourced=0
 
-if [[ $sourced = 0 ]]; then
+if [[ "$sourced" = 0 ]]; then
     set -eo pipefail
     {% for root in roots %}
     restic backup "{{ root.path }}" \
