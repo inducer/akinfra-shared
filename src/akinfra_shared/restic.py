@@ -66,6 +66,9 @@ RESTIC_GENERIC_EXCLUDES = [
     "/var/cache",
     "/var/lib/apt/lists",
     "/usr",
+    ".local/share/containers",
+    ".venv",
+    ".npm",
 ]
 
 
