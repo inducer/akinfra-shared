@@ -267,15 +267,15 @@ class UnattendedUpgradesConfig:
 def deploy_unattended_upgrades():
     # https://linuxcapable.com/how-to-configure-unattended-upgrades-on-debian-linux/
     # zless /usr/share/doc/unattended-upgrades/README.md.gz
-    apt.packages(
-        packages=["unattended-upgrades"],
-        present=True,
-    )
-
     if not hasattr(host.data, "unattended_upgrades_config"):
         return
     config = host.data.unattended_upgrades_config
     assert isinstance(config, UnattendedUpgradesConfig)
+
+    apt.packages(
+        packages=["unattended-upgrades"],
+        present=True,
+    )
 
     if host.get_fact(LinuxName) != "Debian":
         raise ValueError("cannot configure unattended-upgrades for non-Debian host")
