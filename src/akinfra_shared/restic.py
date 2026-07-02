@@ -120,6 +120,7 @@ def deploy_restic_backup() -> None:
             )
         else:
             files.file(
+                name=f"Remove allow users for target {target.name}",
                 path=sudoers_file,
                 present=False,
             )
