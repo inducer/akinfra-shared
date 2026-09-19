@@ -6,11 +6,11 @@ from pyinfra.api import deploy
 from pyinfra.context import host
 from pyinfra.facts.files import Directory
 from pyinfra.facts.server import Kernel, LinuxName
-from pyinfra.operations import apk, apt, files, server, systemd
+from pyinfra.operations import apk, apt, files, pkg, server, systemd
 
 from akinfra_shared.nebula import deploy_nebula
 from akinfra_shared.restic import deploy_restic_backup
-from akinfra_shared.tools import needs_sudo, render_template
+from akinfra_shared.tools import get_bitwarden_password, get_bitwarden_username, host_deb_arch, needs_sudo, render_template
 
 MY_MODULE = "akinfra_shared"
 
@@ -293,6 +293,62 @@ def deploy_unattended_upgrades():
     )
 
 
+@dataclass(frozen=True, kw_only=True)
+class OtelcolConfig:
+    token_id: str
+    stream_name: str
+
+
+@deploy("Deploy OpenTelemetry Collector")
+def deploy_opentelemetry_collector():
+    if not hasattr(host.data, "otelcol_config"):
+        return
+    config = host.data.otelcol_config
+    assert isinstance(config, OtelcolConfig)
+
+    version = "0.161.0"
+
+    from base64 import b64encode
+    token = b64encode(
+        f"{get_bitwarden_username(config.token_id)}:{get_bitwarden_password(config.token_id)}"
+        .encode()).decode()
+
+    contrib_pkg_file = f"otelcol-contrib_{version}_linux_{host_deb_arch()}.deb"
+    base_url = f"https://github.com/open-telemetry/opentelemetry-collector-releases/releases/download/v{version}/"
+    apt.packages(packages=["curl"], present=True)
+
+    server.shell(
+        name="Download and install package",
+        commands=[
+            f"wcurl {base_url}{contrib_pkg_file}",
+            f"dpkg -i {contrib_pkg_file}",
+            f"rm -f {contrib_pkg_file}",
+            ],
+        _chdir="/root",
+    )
+    conf_content = render_template(
+        "otelcol-config.yaml.jinja",
+        module_name=MY_MODULE,
+        template_vars={
+            "config": config,
+            "token": token,
+        })
+    conf_install = files.put(
+        name="Update config",
+        dest="/etc/otelcol-contrib/config.yaml",
+        src=BytesIO(conf_content.encode()),
+    )
+    server.user("otelcol-contrib",
+        groups=["systemd-journal"]
+        )
+    systemd.service(
+        name="Restart systemd service",
+        service="otelcol-contrib",
+        restarted=True,
+        _if=conf_install.did_change,
+    )
+
+
 def all():
     # mitigate_copyfail(_sudo=needs_sudo(host))
     # mitigate_dirtyfrag(_sudo=needs_sudo(host))
@@ -304,3 +360,4 @@ def all():
     deploy_restic_backup(_sudo=needs_sudo(host))
     deploy_exim4_config(_sudo=needs_sudo(host))
     deploy_unattended_upgrades(_sudo=needs_sudo(host))
+    deploy_opentelemetry_collector(_sudo=needs_sudo(host))

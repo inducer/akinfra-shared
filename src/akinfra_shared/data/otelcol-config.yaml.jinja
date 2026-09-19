@@ -1,0 +1,38 @@
+receivers:
+  journald:
+    directory: /var/log/journal
+
+  hostmetrics:
+    collection_interval: 60s
+    scrapers:
+      cpu:
+      disk:
+      filesystem:
+      load:
+      memory:
+      network:
+      paging:
+      processes:
+      process:
+      system:
+
+exporters:
+  otlphttp/openobserve:
+    endpoint: https://observe.tiker.net/api/default
+    headers:
+      Authorization: Basic {{ token | safe }}
+      stream-name: {{ config.stream_name | safe }}
+
+service:
+  telemetry:
+    logs:
+      level: warn
+
+  pipelines:
+    logs:
+      receivers: [journald]
+      exporters: [otlphttp/openobserve]
+
+    metrics:
+      receivers: [hostmetrics]
+      exporters: [otlphttp/openobserve]
