@@ -294,8 +294,8 @@ def deploy_unattended_upgrades():
 
 
 def all():
-    mitigate_copyfail(_sudo=needs_sudo(host))
-    mitigate_dirtyfrag(_sudo=needs_sudo(host))
+    # mitigate_copyfail(_sudo=needs_sudo(host))
+    # mitigate_dirtyfrag(_sudo=needs_sudo(host))
     install_sshd_config(_sudo=needs_sudo(host))
     install_apt_sources(_sudo=needs_sudo(host))
     install_default_packages(_sudo=needs_sudo(host))
