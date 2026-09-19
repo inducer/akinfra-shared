@@ -46,6 +46,7 @@ RESTIC_GENERIC_EXCLUDES = [
     "/boot",
     ".cache",
     ".cargo",
+    ".rustup",
     "/swapfile",
     "/var/lib/docker",
     "/var/lib/containers",
