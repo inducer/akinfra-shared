@@ -1,0 +1,20 @@
+[Unit]
+Description=OpenTelemetry Collector Contrib
+After=network.target
+
+[Service]
+EnvironmentFile=/etc/otelcol-contrib/otelcol-contrib.conf
+ExecStart=/usr/bin/otelcol-contrib $OTELCOL_OPTIONS
+ExecReload=/bin/kill -HUP $MAINPID
+KillMode=mixed
+Restart=on-failure
+Type=simple
+
+User=otelcol-contrib
+Group=otelcol-contrib
+
+CapabilityBoundingSet=CAP_SYS_PTRACE
+AmbientCapabilities=CAP_SYS_PTRACE
+
+[Install]
+WantedBy=multi-user.target

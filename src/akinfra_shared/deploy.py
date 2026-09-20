@@ -10,7 +10,7 @@ from pyinfra.operations import apk, apt, files, pkg, server, systemd
 
 from akinfra_shared.nebula import deploy_nebula
 from akinfra_shared.restic import deploy_restic_backup
-from akinfra_shared.tools import get_bitwarden_password, get_bitwarden_username, host_deb_arch, needs_sudo, render_template
+from akinfra_shared.tools import get_bitwarden_password, get_bitwarden_username, host_deb_arch, install_service, needs_sudo, render_template
 
 MY_MODULE = "akinfra_shared"
 
@@ -338,14 +338,18 @@ def deploy_opentelemetry_collector():
         dest="/etc/otelcol-contrib/config.yaml",
         src=BytesIO(conf_content.encode()),
     )
-    server.user("otelcol-contrib",
+    server.user(user="otelcol-contrib",
         groups=["systemd-journal"]
         )
-    systemd.service(
-        name="Restart systemd service",
-        service="otelcol-contrib",
-        restarted=True,
-        _if=conf_install.did_change,
+    service_content = render_template(
+        "otelcol-contrib.service.jinja",
+        module_name=MY_MODULE,
+        template_vars={
+        })
+    install_service(
+        name="otelcol-contrib",
+        content=service_content,
+        restart_if=conf_install.did_change,
     )
 
 

@@ -2,8 +2,9 @@ receivers:
   journald:
     directory: /var/log/journal
 
-  hostmetrics:
+  host_metrics:
     collection_interval: 60s
+    mute_process_all_errors: true
     scrapers:
       cpu:
       disk:
@@ -17,22 +18,43 @@ receivers:
       system:
 
 exporters:
-  otlphttp/openobserve:
+  otlp_http/openobserve:
     endpoint: https://observe.tiker.net/api/default
     headers:
       Authorization: Basic {{ token | safe }}
       stream-name: {{ config.stream_name | safe }}
+  debug/metrics:
+    verbosity: normal
+
+processors:
+  resource_detection/system:
+    detectors: [system]
+    override: false
+    system:
+      hostname_sources: [os]
+      resource_attributes:
+        host.id:
+          enabled: true
 
 service:
   telemetry:
     logs:
-      level: warn
-
+      level: info
+    metrics:
+      readers:
+        - pull:
+            exporter:
+              prometheus:
+                host: localhost
+                port: 9888
   pipelines:
     logs:
       receivers: [journald]
-      exporters: [otlphttp/openobserve]
+      processors: [resource_detection/system]
+      exporters: [otlp_http/openobserve]
 
     metrics:
-      receivers: [hostmetrics]
-      exporters: [otlphttp/openobserve]
+      receivers: [host_metrics]
+      # exporters: [otlp_http/openobserve,debug/metrics]
+      processors: [resource_detection/system]
+      exporters: [otlp_http/openobserve]
