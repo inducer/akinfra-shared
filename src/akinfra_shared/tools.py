@@ -193,7 +193,7 @@ def install_service(
             *,
             restart_if: Callable[[], bool] | None = None
         ):
-    files.put(
+    service_install = files.put(
         name=f"Install {name} systemd service file",
         dest=f"/etc/systemd/system/{name}.service",
         src=BytesIO(content.encode()),
@@ -209,7 +209,7 @@ def install_service(
         name=f"Restart {name} systemd service",
         service=name,
         restarted=True,
-        _if=restart_if,
+        _if=lambda: (restart_if is not None and restart_if()) or service_install.did_change(),
     )
 
 
