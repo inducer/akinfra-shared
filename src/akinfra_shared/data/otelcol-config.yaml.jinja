@@ -4,7 +4,6 @@ receivers:
 
   host_metrics:
     collection_interval: 60s
-    mute_process_all_errors: true
     scrapers:
       cpu:
       disk:
@@ -15,6 +14,7 @@ receivers:
       paging:
       processes:
       process:
+        mute_process_all_errors: true
       system:
 
 exporters:
