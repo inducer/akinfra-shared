@@ -4,13 +4,14 @@ from typing import Literal
 
 from pyinfra.api import deploy
 from pyinfra.context import host
+from pyinfra.facts.deb import DebPackage
 from pyinfra.facts.files import Directory
 from pyinfra.facts.server import Kernel, LinuxName
 from pyinfra.operations import apk, apt, files, pkg, server, systemd
 
 from akinfra_shared.nebula import deploy_nebula
 from akinfra_shared.restic import deploy_restic_backup
-from akinfra_shared.tools import get_bitwarden_password, get_bitwarden_username, host_deb_arch, install_service, needs_sudo, render_template
+from akinfra_shared.tools import get_bitwarden_password, get_bitwarden_username, host_deb_arch, install_service, needs_sudo, parse_debian_version, render_template
 
 MY_MODULE = "akinfra_shared"
 
@@ -307,25 +308,30 @@ def deploy_opentelemetry_collector():
     assert isinstance(config, OtelcolConfig)
 
     version = "0.161.0"
+    deb_version = parse_debian_version(version)
 
     from base64 import b64encode
     token = b64encode(
         f"{get_bitwarden_username(config.token_id)}:{get_bitwarden_password(config.token_id)}"
         .encode()).decode()
 
-    contrib_pkg_file = f"otelcol-contrib_{version}_linux_{host_deb_arch()}.deb"
-    base_url = f"https://github.com/open-telemetry/opentelemetry-collector-releases/releases/download/v{version}/"
-    apt.packages(packages=["curl"], present=True)
+    pkg_name = "otelcol-contrib"
+    pkg_status = host.get_fact(DebPackage, pkg_name)
+    install_package = pkg_status is None or parse_debian_version(pkg_status["version"]) < deb_version
+    if install_package:
+        contrib_pkg_file = f"{pkg_name}_{version}_linux_{host_deb_arch()}.deb"
+        base_url = f"https://github.com/open-telemetry/opentelemetry-collector-releases/releases/download/v{version}/"
+        apt.packages(packages=["curl"], present=True)
 
-    server.shell(
-        name="Download and install package",
-        commands=[
-            f"wcurl {base_url}{contrib_pkg_file}",
-            f"dpkg -i {contrib_pkg_file}",
-            f"rm -f {contrib_pkg_file}",
-            ],
-        _chdir="/root",
-    )
+        server.shell(
+            name="Download and install package",
+            commands=[
+                f"wcurl {base_url}{contrib_pkg_file}",
+                f"dpkg -i {contrib_pkg_file}",
+                f"rm -f {contrib_pkg_file}",
+                ],
+            _chdir="/root",
+        )
     conf_content = render_template(
         "otelcol-config.yaml.jinja",
         module_name=MY_MODULE,
@@ -349,7 +355,7 @@ def deploy_opentelemetry_collector():
     install_service(
         name="otelcol-contrib",
         content=service_content,
-        restart_if=conf_install.did_change,
+        restart_if=lambda: install_package or conf_install.did_change(),
     )
 
 
