@@ -7,11 +7,20 @@ from pyinfra.context import host
 from pyinfra.facts.deb import DebPackage
 from pyinfra.facts.files import Directory
 from pyinfra.facts.server import Kernel, LinuxName
-from pyinfra.operations import apk, apt, files, pkg, server, systemd
+from pyinfra.operations import apk, apt, files, server, systemd
+from typing_extensions import override
 
 from akinfra_shared.nebula import deploy_nebula
 from akinfra_shared.restic import deploy_restic_backup
-from akinfra_shared.tools import get_bitwarden_password, get_bitwarden_username, host_deb_arch, install_service, needs_sudo, parse_debian_version, render_template
+from akinfra_shared.tools import (
+    get_bitwarden_password,
+    get_bitwarden_username,
+    host_deb_arch,
+    install_service,
+    needs_sudo,
+    parse_debian_version,
+    render_template,
+)
 
 MY_MODULE = "akinfra_shared"
 
@@ -62,18 +71,35 @@ def mitigate_dirtyfrag():
                 present=False,
             )
 
+@dataclass(frozen=True)
+class SSHDMaxStartups:
+    start: int
+    rate: int
+    full: int
+
+    @override
+    def __str__(self):
+        return f"{self.start}:{self.rate}:{self.full}"
+
+
+@dataclass(frozen=True, kw_only=True)
+class SSHDConfig:
+    port: int = 22
+    max_startups: SSHDMaxStartups | None = None
+    per_source_penalties_exempt: list[str] = field(default_factory=list)
+
 
 @deploy("Install SSHd config")
 def install_sshd_config():
     if not host.get_fact(Directory, "/etc/ssh"):
         return
 
+    config = host.data.sshd_config
+    assert isinstance(config, SSHDConfig)
+
     sshd_config = render_template(
         "sshd_config.jinja",
-        template_vars={
-            "max_startups": host.data.get("sshd_max_startups", None),
-            "port": host.data.get("sshd_port", None)
-        },
+        template_vars={"config": config},
     )
 
     sshd_config_op = files.put(

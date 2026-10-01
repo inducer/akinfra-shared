@@ -10,11 +10,7 @@
 
 Include /etc/ssh/sshd_config.d/*.conf
 
-{% if port %}
-Port {{ port }}
-{% else %}
-#Port 22
-{% endif %}
+Port {{ config.port }}
 #AddressFamily any
 #ListenAddress 0.0.0.0
 #ListenAddress ::
@@ -126,6 +122,12 @@ Subsystem	sftp	/usr/lib/openssh/sftp-server
 #	PermitTTY no
 #	ForceCommand cvs server
 
-{% if max_startups %}
-MaxStartups {{ max_startups }}
+{% if config.max_startups %}
+MaxStartups {{ config.max_startups }}
 {% endif %}
+
+{% if config.per_source_penalties_exempt %}
+PerSourcePenaltyExemptList {{ " ".join(config.per_source_penalties_exempt) }}
+{% endif %}
+
+LoginGraceTime 30s
