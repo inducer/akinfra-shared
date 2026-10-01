@@ -150,9 +150,32 @@ def set_up_network_dhcp() -> None:
         )
 
 
+@deploy("Install fail2ban")
+def install_fail2ban():
+    if host.get_fact(LinuxName) in ["Debian", "Ubuntu"]:
+        apt.packages(
+            name="Install fail2ban",
+            packages=["fail2ban"],
+        )
+        logtgt_change_op = files.line(
+            name="Adjust fail2ban logtarget",
+            path="/etc/fail2ban/fail2ban.conf",
+            line="^logtarget *=",
+            extended_regex=True,
+            replace="logtarget = SYSTEMD-JOURNAL",
+        )
+        systemd.service(
+            name="Restart fail2ban",
+            service="fail2ban",
+            restarted=True,
+            _if=logtgt_change_op.did_change,
+        )
+
+
 @deploy("Install default packages")
 def install_default_packages():
     if host.get_fact(LinuxName) in ["Debian", "Ubuntu"]:
+        install_fail2ban()
         apt.packages(
             name="Install default packages (generic)",
             packages=[
