@@ -215,7 +215,7 @@ def install_default_packages():
                 "tcpdump", "ncdu", "mc",
                 "micro", "vim-nox", "zsh",
                 "systemd-coredump", "mdadm",
-                "pipx", "cronie",
+                "pipx", "cronie", "extrepo",
             ],
             update=True,
             present=True,
