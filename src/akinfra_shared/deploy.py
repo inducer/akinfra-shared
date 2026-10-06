@@ -95,8 +95,11 @@ def install_sshd_config():
     if not host.get_fact(Directory, "/etc/ssh"):
         return
 
-    config = host.data.sshd_config
-    assert isinstance(config, SSHDConfig)
+    if hasattr(host.data, "sshd_config"):
+        config = host.data.sshd_config
+        assert isinstance(config, SSHDConfig)
+    else:
+        config = SSHDConfig()
 
     sshd_config = render_template(
         "sshd_config.jinja",
