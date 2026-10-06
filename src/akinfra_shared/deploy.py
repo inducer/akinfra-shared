@@ -1,12 +1,12 @@
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from io import BytesIO
-from typing import Literal
+from typing import Literal, cast
 
 from pyinfra.api import deploy
 from pyinfra.context import host
 from pyinfra.facts.deb import DebPackage
 from pyinfra.facts.files import Directory
-from pyinfra.facts.server import Kernel, LinuxName
+from pyinfra.facts.server import Kernel, LinuxName, Users
 from pyinfra.operations import apk, apt, files, server, systemd
 from typing_extensions import override
 
@@ -412,6 +412,122 @@ def deploy_opentelemetry_collector():
     )
 
 
+@dataclass(kw_only=True, frozen=True)
+class GitlabRunnerDocker:
+    image: str = "inducer/ci-base-image:latest"
+    privileged: bool = False
+    disable_entrypoint_overwrite: bool = False
+    oom_kill_disable: bool = False
+    disable_cache: bool = False
+    shm_size: int = 0
+
+    def to_dict(self, *, runner_uid: int):
+        result = asdict(self)
+        result["host"] = f"unix:///run/user/{runner_uid}/podman/podman.sock"
+        return result
+
+
+@dataclass(kw_only=True, frozen=True)
+class GitlabRunner:
+    name: str
+    token_id: str
+    url: str = "https://gitlab.tiker.net"
+    executor: Literal["shell", "docker"]
+    docker: GitlabRunnerDocker | None = None
+
+    def to_dict(self, runner_uid: int | None):
+        result: dict[str, object] = {
+            "name": self.name,
+            "token": get_bitwarden_password(self.token_id),
+            "url": self.url,
+            "executor": self.executor,
+        }
+        if self.executor == "docker":
+            assert self.docker is not None
+            assert runner_uid is not None
+            result["docker"] = self.docker.to_dict(runner_uid=runner_uid)
+        else:
+            assert self.docker is None
+
+        return result
+
+
+@dataclass(kw_only=True, frozen=True)
+class GitlabRunnerConfig:
+    concurrent: int
+    check_interval: int = 240
+    runners: list[GitlabRunner]
+
+    def has_docker(self):
+        return any(r.executor == "docker" for r in self.runners)
+
+    def to_dict(self, *, runner_uid: int | None):
+        return {
+            "concurrent": self.concurrent,
+            "check_interval": self.check_interval,
+            "runners": [r.to_dict(runner_uid=runner_uid) for r in self.runners]
+        }
+
+
+@deploy("Deploy Gitlab runner")
+def deploy_gitlab_runner():
+    if not hasattr(host.data, "gitlab_runner_config"):
+        return
+    config = host.data.gitlab_runner_config
+    assert isinstance(config, GitlabRunnerConfig)
+
+    if host.get_fact(LinuxName) != "Debian":
+        raise ValueError("Gitlab runner config requires Debian")
+
+    server.shell(
+        name="Add/enable Gitlab Runner repo",
+        commands=[
+            "extrepo enable gitlab_runner",
+            "extrepo update gitlab_runner",
+            ],
+    )
+
+    apt.packages(
+        name="Install gitlab-runner",
+        packages=["gitlab-runner"],
+        update=True,
+        present=True,
+    )
+
+    username = "gitlab-runner"
+    users = host.get_fact(Users)
+    runner_uid = cast("int", users[username]["uid"]) if username in users else None
+
+    if config.has_docker():
+        if runner_uid is None:
+            raise ValueError("cannot set up docker, UID not known (rerun)")
+
+        apt.packages(
+            name="Install podman",
+            packages=["podman"],
+            present=True,
+        )
+        server.shell(
+            name=f"Enable linger and podman for {username}",
+            commands=[
+                f"loginctl enable-linger {username}",
+                f"systemctl --machine={username}@.host --user --now enable podman.socket",
+            ],
+        )
+
+    import tomli_w
+    config_change_op = files.put(
+        name="Write gitlab runner config",
+        dest="/etc/gitlab-runner/config.toml",
+        src=BytesIO(tomli_w.dumps(config.to_dict(runner_uid=runner_uid)).encode())
+    )
+    systemd.service(
+        service="gitlab-runner",
+        restarted=True,
+        _if=config_change_op.did_change,
+    )
+
+
 def all():
     # mitigate_copyfail(_sudo=needs_sudo(host))
     # mitigate_dirtyfrag(_sudo=needs_sudo(host))
@@ -424,3 +540,4 @@ def all():
     deploy_exim4_config(_sudo=needs_sudo(host))
     deploy_unattended_upgrades(_sudo=needs_sudo(host))
     deploy_opentelemetry_collector(_sudo=needs_sudo(host))
+    deploy_gitlab_runner(_sudo=needs_sudo(host))

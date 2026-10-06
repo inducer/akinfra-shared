@@ -17,6 +17,7 @@ dependencies = [
     "pyinfra",
     "pyyaml",
     "pydantic",
+    "tomli-w",
 ]
 
 [tool.hatch.version]
