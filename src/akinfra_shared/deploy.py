@@ -301,7 +301,7 @@ def deploy_exim4_config():
         src=BytesIO(aliases_content.encode()),
     )
     server.shell(
-        name="Update config  and restart",
+        name="Update config and restart",
         commands=[
             "update-exim4.conf",
             "systemctl restart exim4"
