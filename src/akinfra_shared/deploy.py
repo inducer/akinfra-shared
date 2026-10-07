@@ -421,6 +421,7 @@ class GitlabRunnerDocker:
     oom_kill_disable: bool = False
     disable_cache: bool = False
     shm_size: int = 0
+    volumes: list[str] = field(default_factory=lambda: ["/cache"])
 
     def to_dict(self, *, runner_uid: int):
         result = asdict(self)
