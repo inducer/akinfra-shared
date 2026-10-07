@@ -456,7 +456,7 @@ class GitlabRunner:
 @dataclass(kw_only=True, frozen=True)
 class GitlabRunnerConfig:
     concurrent: int
-    check_interval: int = 240
+    check_interval: int = 60
     runners: list[GitlabRunner]
 
     def has_docker(self):
