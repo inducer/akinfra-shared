@@ -1,4 +1,5 @@
 import contextlib
+import itertools
 import os
 import re
 import subprocess
@@ -16,7 +17,7 @@ from pyinfra import host
 from pyinfra.api import deploy
 from pyinfra.api.host import Host
 from pyinfra.facts.deb import DebPackage
-from pyinfra.facts.files import FindLinks
+from pyinfra.facts.files import FileContents, FindLinks
 from pyinfra.facts.server import Arch, LinuxName
 from pyinfra.operations import apt, files, pipx, server, systemd
 
@@ -421,3 +422,111 @@ def deploy_systemd_timer(base_name: str, command: str, user: str, when: str, per
         running=True,
         daemon_reload=True,
     )
+
+
+def subid_file_with_allocation(  # ruff: ignore[complex-structure]
+    current_file: str,
+    username: str,
+    size: int,
+    *, min_start: int = 100_000,
+    max_id: int = (1 << 32) - 2
+) -> str:
+    """Return updated subuid/subgid file text with a free range for ``username``.
+
+    An existing contiguous allocation for ``username`` is retained when it is
+    already at least ``size``. Otherwise it is enlarged in place, provided the
+    following IDs are unallocated. A new range is appended only when the user
+    has no allocation. Raises ValueError for invalid input or if no range is
+    available.
+    """
+    if not username or ":" in username or "\n" in username:
+        raise ValueError("username must be nonempty and contain no ':' or newline")
+    if not isinstance(size, int) or isinstance(size, bool) or size <= 0:
+        raise ValueError("size must be a positive integer")
+    if not isinstance(min_start, int) or min_start < 0:
+        raise ValueError("min_start must be a nonnegative integer")
+    if min_start > max_id or size > max_id - min_start + 1:
+        raise ValueError("requested range cannot fit within the ID limit")
+
+    # Parse and validate ranges; represent each as a half-open interval
+    # [start, end), so adjacent ranges do not count as overlapping.
+    ranges: list[tuple[int, int]] = []
+    user_ranges: list[tuple[int, int, int]] = []
+    lines = current_file.splitlines(keepends=True)
+    for lineno, raw_line in enumerate(lines, 1):
+        line = raw_line.strip()
+        if not line or line.startswith("#"):
+            continue
+
+        fields = line.split(":")
+        if len(fields) != 3:
+            raise ValueError(f"line {lineno}: expected name:start:count")
+
+        name, start_text, count_text = fields
+        try:
+            start, count = int(start_text), int(count_text)
+        except ValueError:
+            raise ValueError(f"line {lineno}: start and count must be integers") from None
+
+        if not name or start < 0 or count <= 0 or start + count - 1 > max_id:
+            raise ValueError(f"line {lineno}: invalid or out-of-range allocation")
+
+        allocation = (start, start + count)
+        ranges.append(allocation)
+        if name == username:
+            user_ranges.append((lineno - 1, start, count))
+
+    ranges.sort()
+    for (_, end), (next_start, _) in itertools.pairwise(ranges):
+        if next_start < end:
+            raise ValueError("existing allocations overlap")
+
+    for _, _, count in user_ranges:
+        if count >= size:
+            return current_file
+
+    if user_ranges:
+        line_index, start, _ = user_ranges[0]
+        end = start + size
+        if end - 1 > max_id or any(
+            allocated_start < end and start < allocated_end
+            for allocated_start, allocated_end in ranges
+            if allocated_start != start
+        ):
+            raise ValueError("existing allocation cannot be enlarged safely")
+
+        line_ending = lines[line_index][len(lines[line_index].rstrip("\r\n")):]
+        lines[line_index] = f"{username}:{start}:{size}{line_ending}"
+        return "".join(lines) + "\n"
+
+    candidate = min_start
+    for start, end in ranges:
+        if candidate + size <= start:
+            break
+        candidate = max(candidate, end)
+
+    if candidate + size - 1 > max_id:
+        raise ValueError("no free range large enough")
+
+    separator = "" if not current_file or current_file.endswith("\n") else "\n"
+    return f"{current_file}{separator}{username}:{candidate}:{size}\n"
+
+
+def allocate_subids(
+    username: str,
+    subuid_count: int = 65535,
+    subgid_count: int = 65535
+):
+    for fname, count in [
+        ("/etc/subuid", subuid_count),
+        ("/etc/subgid", subgid_count),
+    ]:
+        new_contents = subid_file_with_allocation(
+                "\n".join(host.get_fact(FileContents, fname)) + "\n",
+                username, count).encode()
+        assert new_contents.endswith(b"\n")
+        files.put(
+            name=f"Write {fname}",
+            dest=fname,
+            src=BytesIO(new_contents)
+        )

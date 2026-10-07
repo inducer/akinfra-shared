@@ -13,6 +13,7 @@ from typing_extensions import override
 from akinfra_shared.nebula import deploy_nebula
 from akinfra_shared.restic import deploy_restic_backup
 from akinfra_shared.tools import (
+    allocate_subids,
     get_bitwarden_password,
     get_bitwarden_username,
     host_deb_arch,
@@ -513,6 +514,11 @@ def deploy_gitlab_runner():
                 f"loginctl enable-linger {username}",
                 f"systemctl --machine={username}@.host --user --now enable podman.socket",
             ],
+        )
+        allocate_subids(username)
+        server.shell(
+            name="Migrate podman subusers",
+            commands=["su - gitlab-runner -c 'podman system migrate'"],
         )
 
     import tomli_w
